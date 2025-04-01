@@ -3,7 +3,7 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - staging
+      - master
       - production
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
       run: |
         case "$GITHUB_REF_NAME" in
           production) CLUSTER_NAME=prod-cluster ;;
-          staging) CLUSTER_NAME=stage-cluster ;;
+          master) CLUSTER_NAME=stage-cluster ;;
         esac
         echo "cluster_name=$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
         echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
