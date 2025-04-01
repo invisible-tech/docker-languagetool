@@ -5,7 +5,7 @@ FROM debian:bookworm as build
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y \
-    && apt-get install -y \
+    && apt-get install --no-install-recommends -y \
     locales \
     bash \
     libgomp1 \
@@ -14,7 +14,6 @@ RUN apt-get update -y \
     maven \
     unzip \
     xmlstarlet \
-
     # packages required for arm64-workaround
     build-essential \
     cmake \
@@ -33,19 +32,21 @@ ARG LANGUAGETOOL_VERSION
 RUN git clone https://github.com/languagetool-org/languagetool.git --depth 1 -b v${LANGUAGETOOL_VERSION}
 WORKDIR /languagetool
 RUN ["mvn", "--projects", "languagetool-standalone", "--also-make", "package", "-DskipTests", "--quiet"]
-RUN LANGUAGETOOL_DIST_VERSION=$(xmlstarlet sel -N "x=http://maven.apache.org/POM/4.0.0" -t -v "//x:project/x:properties/x:revision" pom.xml) && unzip /languagetool/languagetool-standalone/target/LanguageTool-${LANGUAGETOOL_DIST_VERSION}.zip -d /dist
-RUN LANGUAGETOOL_DIST_FOLDER=$(find /dist/ -name 'LanguageTool-*') && mv $LANGUAGETOOL_DIST_FOLDER /dist/LanguageTool
+RUN LANGUAGETOOL_DIST_VERSION="$(xmlstarlet sel -N x=http://maven.apache.org/POM/4.0.0 -t -v //x:project/x:properties/x:revision pom.xml)" \
+  && unzip /languagetool/languagetool-standalone/target/LanguageTool-${LANGUAGETOOL_DIST_VERSION}.zip -d /dist \
+  && LANGUAGETOOL_DIST_FOLDER="$(find /dist/ -name LanguageTool-*)" \
+  && mv $LANGUAGETOOL_DIST_FOLDER /dist/LanguageTool
 
 # Execute workarounds for ARM64 architectures.
 # https://github.com/languagetool-org/languagetool/issues/4543
 WORKDIR /
 COPY arm64-workaround/bridj.sh arm64-workaround/bridj.sh
-RUN chmod +x arm64-workaround/bridj.sh
-RUN bash -c "arm64-workaround/bridj.sh"
+RUN chmod +x arm64-workaround/bridj.sh \
+  && bash -c "arm64-workaround/bridj.sh"
 
 COPY arm64-workaround/hunspell.sh arm64-workaround/hunspell.sh
-RUN chmod +x arm64-workaround/hunspell.sh
-RUN bash -c "arm64-workaround/hunspell.sh"
+RUN chmod +x arm64-workaround/hunspell.sh \
+  && bash -c "arm64-workaround/hunspell.sh"
 
 WORKDIR /languagetool
 
@@ -60,19 +61,20 @@ RUN apk add --no-cache \
     libstdc++ \
     openjdk11-jre-headless
 
-RUN addgroup -S languagetool && adduser -S languagetool -G languagetool
-
-COPY --chown=languagetool --from=build /dist .
+RUN groupadd languagetools --gid 1000 \
+  && useradd languagetools --uid 1000 --gid 1000
+  
+COPY --chown=languagetools --from=build /dist .
 
 WORKDIR /LanguageTool
 
 RUN mkdir /nonexistent && touch /nonexistent/.languagetool.cfg
 
-COPY --chown=languagetool start.sh start.sh
+COPY --chown=languagetools start.sh start.sh
 
-COPY --chown=languagetool config.properties config.properties
+COPY --chown=languagetools config.properties config.properties
 
-USER languagetool
+USER languagetools
 
 HEALTHCHECK --timeout=10s --start-period=5s CMD curl --fail --data "language=en-US&text=a simple test" http://localhost:8010/v2/check || exit 1
 

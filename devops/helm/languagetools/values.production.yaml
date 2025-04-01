@@ -1,0 +1,76 @@
+nameOverride: "languagetools"
+fullnameOverride: "languagetools"
+environment: "production"
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "languagetools"
+
+sharedConfigAnnotations:
+  secrets.doppler.com/reload: "true"
+
+app:
+  port: 8010
+  command: ["bash", "start.sh"]
+  image:
+    repository: us-west1-docker.pkg.dev/invisible-tools/languagetools/languagetools
+    pullPolicy: IfNotPresent
+    tag: "5f66497"
+
+  resources:
+    requests:
+      memory: 200Mi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: "2"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 75
+
+  livenessProbe:
+    enabled: true
+    path: /v2/check
+  # Readiness probe settings
+  readinessProbe:
+    enabled: true
+    path: /v2/check
+
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+
+  podSecurityContext:
+    { }
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  envFrom:
+    - secretRef:
+        name: languagetools-secret
+    - secretRef:
+        name: languagetools-secrets
+    - secretRef:
+        name: languagetools-configuration
+
+  service:
+    type: ClusterIP
+    port: 8010
+
+podLabels:
+  admission.datadoghq.com/enabled: "true"

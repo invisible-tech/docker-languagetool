@@ -1,0 +1,44 @@
+apiVersion: secrets.doppler.com/v1alpha1
+kind: DopplerSecret
+metadata:
+  {{ if eq .Values.app.ingress.className "nginx-staging" }}
+  name: {{ .Values.serviceAccount.name }}-secret-staging
+  {{ else }}
+  name: {{ .Values.serviceAccount.name }}-secret
+  {{ end }}
+  namespace: doppler-operator-system
+spec:
+  tokenSecret:
+    {{ if eq .Values.app.ingress.className "nginx-staging" }}
+    name: doppler-token-secret-{{ .Values.serviceAccount.name }}-staging
+    {{ else }}
+    name: doppler-token-secret-{{ .Values.serviceAccount.name }}-production
+    {{ end }}
+  managedSecret:
+    name: {{ .Values.serviceAccount.name }}-secret
+    {{ if eq .Values.app.ingress.className "nginx-staging" }}
+    namespace: staging
+    {{ else }}
+    namespace: production
+    {{ end }}
+{{- range $suffix := list "secrets" "configuration" }}
+---
+apiVersion: secrets.doppler.com/v1alpha1
+kind: DopplerSecret
+metadata:
+  namespace: doppler-operator-system
+  name: {{ $.Values.nameOverride }}-{{ $suffix }}
+spec:
+  project: {{ $.Values.nameOverride }}-{{ $suffix }}
+  {{ if eq $.Values.environment "production" }}
+  config: prd
+  {{ end }}
+  {{ if eq $.Values.environment "staging" }}
+  config: stg
+  {{ end }}
+  managedSecret:
+    namespace: {{ $.Values.environment }}
+    name: {{ $.Values.nameOverride }}-{{ $suffix }}
+  tokenSecret:
+    name: doppler-token-secret
+{{- end }}
