@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "languagetools-app.fullname" . }}
+  annotations:
+    {{- toYaml .Values.sharedConfigAnnotations | nindent 4 }}
+  labels:
+    {{- include "languagetools-app.labels" . | nindent 4 }}
+    tags.datadoghq.com/env: {{ .Values.environment }}
+    tags.datadoghq.com/service: {{ .Values.nameOverride }}
+    tags.datadoghq.com/version: "{{ .Values.app.image.tag }}"
+spec:
+  {{- if not .Values.app.autoscaling.enabled }}
+  replicas: {{ .Values.app.autoscaling.minReplicas }}
+  {{- end }}
+  {{ if eq .Values.app.ingress.className "nginx-staging" }}
+  revisionHistoryLimit: 0
+  {{ else }}
+  revisionHistoryLimit: 5
+  {{ end }}
+  selector:
+    matchLabels:
+      {{- include "languagetools-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "languagetools-app.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "languagetools-app.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.app.podSecurityContext | nindent 8 }}
+      containers:
+        - name: app
+          securityContext:
+            {{- toYaml .Values.app.securityContext | nindent 12 }}
+          {{ if .Values.app.image.tag }}
+          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+          {{ else }}
+          image: "{{ .Values.app.image.repository }}"
+          {{ end }}
+          imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+          envFrom: {{- toYaml .Values.app.envFrom | nindent 12 }}
+          {{ if .Values.app.command }}
+          command: {{ toYaml .Values.app.command | nindent 10 }}
+          {{ end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.app.port }}
+              protocol: TCP
+          {{- if .Values.app.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.app.livenessProbe.path }}
+              port: {{ .Values.app.port }}
+            initialDelaySeconds: 30
+        {{- end }}
+        {{- if .Values.app.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.app.readinessProbe.path }}
+              port: {{ .Values.app.port }}
+            initialDelaySeconds: 15
+        {{- end }}
+          resources:
+            {{- toYaml .Values.app.resources | nindent 12 }}
+      {{- with .Values.app.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.app.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.app.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
