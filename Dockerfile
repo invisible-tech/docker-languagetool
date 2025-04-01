@@ -61,8 +61,8 @@ RUN apk add --no-cache \
     libstdc++ \
     openjdk11-jre-headless
 
-RUN groupadd languagetools --gid 1000 \
-  && useradd languagetools --uid 1000 --gid 1000
+RUN addgroup -S languagetools -g 1000 \
+  && adduser -S languagetools -G languagetools -u 1000
   
 COPY --chown=languagetools --from=build /dist .
 
